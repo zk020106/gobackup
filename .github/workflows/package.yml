@@ -1,0 +1,169 @@
+name: Build & Package Binaries
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      create_release:
+        description: 'Publish as GitHub Release (同时发布到 GitHub Releases)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-package:
+    name: Build & Package (Windows & Linux)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-store
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('web/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Build Web Frontend
+        run: |
+          cd web
+          pnpm install --frozen-lockfile
+          pnpm build
+          cd ..
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Determine Version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VER="${GITHUB_REF_NAME}"
+          else
+            VER="$(git describe --tags --always --dirty 2>/dev/null || echo "${GITHUB_SHA::8}")"
+          fi
+          echo "VERSION=${VER}" >> $GITHUB_ENV
+          echo "version=${VER}" >> $GITHUB_OUTPUT
+          echo "Building GoBackup version: ${VER}"
+
+      - name: Compile and Package All Binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist-packages dist-staging
+          LDFLAGS="-s -w -X main.version=${VERSION}"
+
+          echo "========================================"
+          echo "1. Building Windows amd64..."
+          echo "========================================"
+          mkdir -p dist-staging/gobackup-windows-amd64
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" -o dist-staging/gobackup-windows-amd64/gobackup.exe .
+          cp README.md LICENSE dist-staging/gobackup-windows-amd64/ 2>/dev/null || true
+          (cd dist-staging && zip -r ../dist-packages/gobackup-windows-amd64.zip gobackup-windows-amd64)
+
+          echo "========================================"
+          echo "2. Building Windows arm64..."
+          echo "========================================"
+          mkdir -p dist-staging/gobackup-windows-arm64
+          CGO_ENABLED=0 GOOS=windows GOARCH=arm64 go build -trimpath -ldflags "$LDFLAGS" -o dist-staging/gobackup-windows-arm64/gobackup.exe .
+          cp README.md LICENSE dist-staging/gobackup-windows-arm64/ 2>/dev/null || true
+          (cd dist-staging && zip -r ../dist-packages/gobackup-windows-arm64.zip gobackup-windows-arm64)
+
+          echo "========================================"
+          echo "3. Building Linux amd64..."
+          echo "========================================"
+          mkdir -p dist-staging/gobackup-linux-amd64
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" -o dist-staging/gobackup-linux-amd64/gobackup .
+          chmod +x dist-staging/gobackup-linux-amd64/gobackup
+          cp README.md LICENSE dist-staging/gobackup-linux-amd64/ 2>/dev/null || true
+          tar -czvf dist-packages/gobackup-linux-amd64.tar.gz -C dist-staging gobackup-linux-amd64
+
+          echo "========================================"
+          echo "4. Building Linux arm64..."
+          echo "========================================"
+          mkdir -p dist-staging/gobackup-linux-arm64
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -trimpath -ldflags "$LDFLAGS" -o dist-staging/gobackup-linux-arm64/gobackup .
+          chmod +x dist-staging/gobackup-linux-arm64/gobackup
+          cp README.md LICENSE dist-staging/gobackup-linux-arm64/ 2>/dev/null || true
+          tar -czvf dist-packages/gobackup-linux-arm64.tar.gz -C dist-staging gobackup-linux-arm64
+
+          echo "========================================"
+          echo "5. Building macOS (darwin) amd64..."
+          echo "========================================"
+          mkdir -p dist-staging/gobackup-darwin-amd64
+          CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -trimpath -ldflags "$LDFLAGS" -o dist-staging/gobackup-darwin-amd64/gobackup .
+          chmod +x dist-staging/gobackup-darwin-amd64/gobackup
+          cp README.md LICENSE dist-staging/gobackup-darwin-amd64/ 2>/dev/null || true
+          tar -czvf dist-packages/gobackup-darwin-amd64.tar.gz -C dist-staging gobackup-darwin-amd64
+
+          echo "========================================"
+          echo "6. Building macOS (darwin) arm64..."
+          echo "========================================"
+          mkdir -p dist-staging/gobackup-darwin-arm64
+          CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -trimpath -ldflags "$LDFLAGS" -o dist-staging/gobackup-darwin-arm64/gobackup .
+          chmod +x dist-staging/gobackup-darwin-arm64/gobackup
+          cp README.md LICENSE dist-staging/gobackup-darwin-arm64/ 2>/dev/null || true
+          tar -czvf dist-packages/gobackup-darwin-arm64.tar.gz -C dist-staging gobackup-darwin-arm64
+
+          echo "========================================"
+          echo "7. Generating SHA256 Checksums..."
+          echo "========================================"
+          cd dist-packages
+          sha256sum * > checksums.txt
+          echo "Checksums:"
+          cat checksums.txt
+          cd ..
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gobackup-binaries-${{ env.VERSION }}
+          path: dist-packages/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.create_release == true)
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ env.VERSION }}
+          tag_name: ${{ env.VERSION }}
+          files: dist-packages/*
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
