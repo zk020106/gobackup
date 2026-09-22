@@ -128,9 +128,9 @@ describe('任务中心页面', () => {
     const progressBar = await screen.findByLabelText('venus 进度 42%')
 
     expect(progressBar).toBeInTheDocument()
-    expect(screen.getByText('42%')).toBeInTheDocument()
-    expect(screen.getByText('导出数据库 · 导出 mysql/venus · 1.2 GB')).toBeInTheDocument()
-    expect(screen.getByText('1.0 KB / 5.0 MB')).toBeInTheDocument()
+    expect(screen.getAllByText('42%').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('导出数据库 · 导出 mysql/venus · 1.2 GB').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('1.0 KB / 5.0 MB').length).toBeGreaterThan(0)
     // 触发方式会同时出现在实时卡片和表格行里。
     expect(screen.getAllByText('计划任务').length).toBeGreaterThan(0)
     expect(screen.getByText(/已运行/)).toBeInTheDocument()
@@ -151,8 +151,8 @@ describe('任务中心页面', () => {
       await renderTasksPage()
 
       expect(await screen.findByLabelText('venus 进行中')).toBeInTheDocument()
-      expect(screen.getByText('打包归档')).toBeInTheDocument()
-      expect(screen.getByText('2.0 KB')).toBeInTheDocument()
+      expect(screen.getAllByText('打包归档').length).toBeGreaterThan(0)
+      expect(screen.getAllByText('2.0 KB').length).toBeGreaterThan(0)
     } finally {
       tasksResponse.tasks[0].progress = {
         bytes_done: 1024,

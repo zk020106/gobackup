@@ -596,6 +596,24 @@ describe('admin app shell', () => {
     expect(wrapper).toHaveStyle('--sidebar-width-icon: 4.25rem')
   })
 
+  it('applies centered layout classes to sidebar header and brand when collapsed', async () => {
+    preferenceStore.getState().resetPreferences()
+    preferenceStore.getState().setPreferences({
+      sidebarCollapsed: true
+    })
+
+    await renderApp()
+
+    const sidebar = document.querySelector<HTMLElement>("[data-slot='sidebar']")
+    const sidebarHeader = document.querySelector<HTMLElement>("[data-slot='sidebar-header']")
+    const sidebarBrand = document.querySelector<HTMLElement>("[data-slot='admin-sidebar-brand']")
+
+    expect(sidebar).toHaveAttribute('data-state', 'collapsed')
+    expect(sidebarHeader).toHaveClass('group-data-[collapsible=icon]:justify-center')
+    expect(sidebarBrand).toHaveClass('group-data-[collapsible=icon]:justify-center')
+    expect(sidebarBrand).toHaveClass('group-data-[collapsible=icon]:px-0')
+  })
+
   it('splits mixed layout into header roots and sidebar children', async () => {
     preferenceStore.getState().resetPreferences()
     preferenceStore.getState().setPreferences({ layout: 'mixed-nav' })

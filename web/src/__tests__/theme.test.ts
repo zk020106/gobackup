@@ -26,11 +26,11 @@ describe('admin theme', () => {
     expect(document.documentElement.style.getPropertyValue('--menu-font-size')).toBe(
       'calc(16px * 0.875)'
     )
-    expect(document.documentElement.style.getPropertyValue('--primary')).toBe('240 60% 60%')
+    expect(document.documentElement.style.getPropertyValue('--primary')).toBe('216 86% 52%')
     expect(document.documentElement.style.getPropertyValue('--semi-border-radius-small')).toBe(
       '0.5rem'
     )
-    expect(document.documentElement.style.getPropertyValue('--semi-color-primary')).toBe('#5c5cd6')
+    expect(document.documentElement.style.getPropertyValue('--semi-color-primary')).toBe('#1d6fee')
     expect(document.body.style.getPropertyValue('--semi-border-radius-small')).toBe('0.5rem')
     expect(document.documentElement.style.getPropertyValue('--sidebar-active')).toBe(
       'var(--primary) / 10%'

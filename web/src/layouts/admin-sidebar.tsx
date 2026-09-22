@@ -284,10 +284,10 @@ export function AdminSidebar({
       variant="sidebar"
     >
       {sidebarHeaderVisible && (
-        <SidebarHeader>
+        <SidebarHeader className="group-data-[collapsible=icon]:h-(--admin-header-height) group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0">
           {variant === 'primary' ? (
             <div
-              className="flex h-10 items-center gap-2 rounded-lg px-2"
+              className="flex h-10 items-center gap-2 rounded-lg px-2 group-data-[collapsible=icon]:h-full group-data-[collapsible=icon]:w-full group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
               data-slot="admin-sidebar-brand"
             >
               <AppLogo size="md" />
