@@ -7,11 +7,11 @@ import { createRoot } from "react-dom/client";
 import "@douyinfe/semi-ui-19/react19-adapter";
 
 import { setupHttpAuth } from "@/auth/http-auth";
-import "@fontsource-variable/geist";
-import "@fontsource-variable/noto-sans-sc";
-import "@fontsource-variable/geist-mono";
-import "@douyinfe/semi-ui-19/dist/css/semi.css";
-import App from "./App.tsx";
+import '@douyinfe/semi-ui-19/dist/css/semi.css'
+import '@fontsource-variable/geist'
+import '@fontsource-variable/noto-sans-sc'
+import '@fontsource-variable/geist-mono'
+import App from './App.tsx'
 
 setupHttpAuth();
 

@@ -56,13 +56,14 @@
 :root {
   --popup-z-index: 2000;
   --font-family:
-    "Geist Variable", "Noto Sans SC Variable", -apple-system, BlinkMacSystemFont, "Segoe UI",
-    Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI",
-    "Microsoft YaHei", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
-    "Noto Color Emoji";
+    "Geist Variable", "Geist", "Noto Sans SC Variable", "Noto Sans SC", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji";
   --font-mono:
-    "Geist Mono Variable", ui-monospace, SFMono-Regular, "JetBrains Mono", "Cascadia Code",
-    "Fira Code", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    "Geist Mono Variable", "Geist Mono", ui-monospace, SFMono-Regular, "JetBrains Mono",
+    "Cascadia Code", "Fira Code", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
 
   --background: 0 0% 100%;
   --background-deep: 240 5% 97%;
@@ -132,11 +133,13 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* 全局字体平滑与 Semi Design 圆角与 Token 深度同步 */
+/* 全局字体平滑、强制穿透继承与 Semi Design Token 深度同步 */
+html,
 body,
-body[theme-mode="dark"] {
-  font-family: var(--font-family);
-  --semi-font-family: var(--font-family);
+body[theme-mode="dark"],
+#root {
+  font-family: var(--font-family) !important;
+  --semi-font-family: var(--font-family) !important;
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -146,11 +149,109 @@ body[theme-mode="dark"] {
   --semi-border-radius-large: calc(var(--radius) * 1.75);
 }
 
+/* 原生表单与可替换元素强制继承主字体 */
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
+}
+
+/*
+ * Semi UI 全系组件与 Portal 穿透覆盖：
+ * Semi UI 内部在 100+ 处选择器（.semi-button, .semi-input, .semi-table...）硬编码了 Inter / 苹方 / 微软雅黑，
+ * 必须在此以类选择器 + !important 强制穿透覆盖，确保所有按钮、标签、弹窗、下拉框、表格单元格统一使用 Geist + Noto Sans SC。
+ */
+[class*='semi-'],
+.semi-portal,
+.semi-portal *,
+.semi-button,
+.semi-button *,
+.semi-input,
+.semi-input *,
+.semi-input-wrapper,
+.semi-input-textarea,
+.semi-select,
+.semi-select *,
+.semi-select-selection,
+.semi-select-option,
+.semi-select-option-text,
+.semi-modal,
+.semi-modal *,
+.semi-modal-content,
+.semi-modal-header,
+.semi-modal-body,
+.semi-modal-footer,
+.semi-drawer,
+.semi-drawer *,
+.semi-drawer-content,
+.semi-popover,
+.semi-popover *,
+.semi-popover-content,
+.semi-tooltip,
+.semi-tooltip *,
+.semi-tooltip-content,
+.semi-toast,
+.semi-toast *,
+.semi-toast-content,
+.semi-notification,
+.semi-notification *,
+.semi-notification-content,
+.semi-table,
+.semi-table *,
+.semi-table-thead,
+.semi-table-tbody,
+.semi-table-row,
+.semi-table-row-cell,
+.semi-table-header-cell,
+.semi-tag,
+.semi-tag *,
+.semi-tag-content,
+.semi-card,
+.semi-card *,
+.semi-card-header,
+.semi-card-body,
+.semi-tabs,
+.semi-tabs *,
+.semi-tabs-bar,
+.semi-tabs-pane,
+.semi-navigation,
+.semi-navigation *,
+.semi-navigation-item,
+.semi-form,
+.semi-form *,
+.semi-form-field,
+.semi-typography,
+.semi-typography *,
+.react-admin-login,
+.react-admin-login * {
+  font-family: var(--font-family) !important;
+}
+
+/*
+ * 代码、终端日志与等宽数字全局穿透覆盖：
+ * 强制使用 Geist Mono Variable，覆盖 react-logviewer 内置的 Monaco 等字体。
+ */
 code,
+code *,
 kbd,
 samp,
-pre {
-  font-family: var(--font-mono);
+pre,
+pre *,
+.font-mono,
+.font-mono *,
+[class*='font-mono'],
+[class*='font-mono'] *,
+[class*='lazyLog'],
+[class*='lazyLog'] *,
+[class*='searchBar'],
+[class*='searchBar'] *,
+.react-logviewer,
+.react-logviewer *,
+.LazyLog,
+.LazyLog * {
+  font-family: var(--font-mono) !important;
 }
 
 .light,
