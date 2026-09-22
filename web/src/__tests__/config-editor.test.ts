@@ -327,7 +327,7 @@ describe('config editor page', () => {
     )
 
     // 默认展示模型工作台
-    expect(await screen.findByText('模型与配置工作台')).toBeInTheDocument()
+    expect(await screen.findByText('数据库连接管理')).toBeInTheDocument()
     expect(screen.getByText('计划调度总览')).toBeInTheDocument()
     expect(screen.getAllByText('app_db').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('cache_backup')).toBeInTheDocument()

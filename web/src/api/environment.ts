@@ -18,6 +18,7 @@ export interface RuntimeInfo {
   start_time: string
   uptime_seconds: number
   work_dir: string
+  temp_dir?: string
   config_file: string
   state_dir: string
   memory_alloc_mb: number

@@ -1230,7 +1230,7 @@ var fieldDescriptions = map[string]string{
 	"uri":                      "完整的 MongoDB 连接串，填写后 host/port 可留空",
 	"url":                      "接收通知的地址（Webhook / 机器人地址）",
 	"username":                 "连接使用的账号",
-	"workdir":                  "运行的临时目录，留空使用系统临时目录",
+	"workdir":                  "备份转储与打包的临时工作目录，留空使用系统临时目录（如 /tmp）。大容量数据库建议指向独立数据盘",
 }
 
 // fieldOptions 是内置枚举值：这些字段与其让用户手输，不如给出下拉选项。

@@ -340,14 +340,19 @@ func TestWatchConfigToReload(t *testing.T) {
 	assert.Nil(t, err)
 
 	lastUpdatedAt := UpdatedAt.UnixNano()
-	time.Sleep(1 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 
 	// Touch `testConfigFile` to trigger file changes event
 	err = updateFile(testConfigFile)
 	assert.Nil(t, err)
 
 	// Wait for reload
-	time.Sleep(10 * time.Millisecond)
+	for i := 0; i < 20; i++ {
+		if UpdatedAt.UnixNano() != lastUpdatedAt {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
 
 	// check config reload updated_at
 	assert.NotEqual(t, lastUpdatedAt, UpdatedAt.UnixNano())
@@ -366,4 +371,51 @@ func updateFile(path string) error {
 	}
 
 	return nil
+}
+
+func TestWorkDirConfig(t *testing.T) {
+	tempConfig, err := os.CreateTemp("", "gobackup-workdir-test-*.yml")
+	assert.Nil(t, err)
+	defer os.Remove(tempConfig.Name())
+
+	content := `
+workdir: /custom/global_workdir
+models:
+  default_model:
+    description: Model with inherited workdir
+    archive:
+      includes:
+        - /var/log
+    storages:
+      dest:
+        type: local
+        path: /tmp/backup
+  custom_model:
+    description: Model with overridden workdir
+    workdir: /custom/model_workdir
+    archive:
+      includes:
+        - /var/log
+    storages:
+      dest:
+        type: local
+        path: /tmp/backup
+`
+	_, err = tempConfig.WriteString(content)
+	assert.Nil(t, err)
+	tempConfig.Close()
+
+	err = Init(tempConfig.Name())
+	assert.Nil(t, err)
+
+	defaultModel := GetModelConfigByName("default_model")
+	assert.NotNil(t, defaultModel)
+	assert.Equal(t, defaultModel.WorkDir, "/custom/global_workdir")
+
+	customModel := GetModelConfigByName("custom_model")
+	assert.NotNil(t, customModel)
+	assert.Equal(t, customModel.WorkDir, "/custom/model_workdir")
+
+	// Restore original test config
+	_ = Init(testConfigFile)
 }

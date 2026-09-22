@@ -1077,7 +1077,7 @@ function ModelEditor({
   path,
   value,
   schema,
-  activeCategory = 'databases',
+  activeCategory = 'all',
   onCategoryChange,
   onDelete,
   onSet
@@ -1115,12 +1115,12 @@ function ModelEditor({
   const dbSummary = getModelDatabaseSummary(model)
 
   const categories: { key: ModelCategory; label: string; icon: React.ReactNode; badge?: number }[] = [
+    { key: 'all', label: '完整概览', icon: <Layers className="size-3.5" /> },
     { key: 'databases', label: '数据库连接', icon: <Database className="size-3.5" />, badge: dbsCount },
     { key: 'schedule', label: '计划任务', icon: <CalendarClock className="size-3.5" /> },
     { key: 'storages', label: '存储目标', icon: <HardDrive className="size-3.5" />, badge: storagesCount },
     { key: 'archive', label: '归档与压缩', icon: <FileArchive className="size-3.5" /> },
-    { key: 'notifiers', label: '通知告警', icon: <Bell className="size-3.5" />, badge: notifiersCount },
-    { key: 'all', label: '完整概览', icon: <Layers className="size-3.5" /> }
+    { key: 'notifiers', label: '通知告警', icon: <Bell className="size-3.5" />, badge: notifiersCount }
   ]
 
   return (
@@ -1752,8 +1752,8 @@ export default function ConfigEditorPage() {
   const [viewMode, setViewMode] = useState<'models' | 'schedules'>('models')
   // 当前选中的条目：'__web__' 或 模型/连接名称
   const [selectedKey, setSelectedKey] = useState<string>('')
-  // 当前模型详情分类：'databases' (优先数据库连接) | 'schedule' | 'storages' | 'archive' | 'notifiers' | 'all'
-  const [activeCategory, setActiveCategory] = useState<ModelCategory>('databases')
+  // 当前模型详情分类：'all' (完整概览) | 'databases' | 'schedule' | 'storages' | 'archive' | 'notifiers'
+  const [activeCategory, setActiveCategory] = useState<ModelCategory>('all')
   // 连接搜索关键字
   const [modelSearch, setModelSearch] = useState('')
 
@@ -1933,7 +1933,7 @@ export default function ConfigEditorPage() {
   }
 
   const webConfig = draft.web
-  const globalOther = Object.fromEntries(Object.entries(draft).filter(([key]) => !['web', 'models'].includes(key)))
+  const globalOther = Object.fromEntries(Object.entries(draft).filter(([key]) => !['web', 'models', 'workdir'].includes(key)))
 
   const filteredModelKeys = modelKeys.filter(k => {
     if (!modelSearch.trim()) return true
@@ -2076,8 +2076,8 @@ export default function ConfigEditorPage() {
                     <div className="flex items-center gap-2 min-w-0">
                       <Settings className="size-4 shrink-0 text-muted-foreground" />
                       <div className="truncate">
-                        <div className="font-medium leading-tight">Web 基础设置</div>
-                        <div className="text-[11px] text-muted-foreground leading-tight">端口、密码及鉴权</div>
+                        <div className="font-medium leading-tight">基础设置</div>
+                        <div className="text-[11px] text-muted-foreground leading-tight">工作目录、Web 端口与鉴权</div>
                       </div>
                     </div>
                     {hasWebUnsaved ? <Tag color="blue" size="small" className="w-fit">未保存</Tag> : null}
@@ -2225,16 +2225,41 @@ export default function ConfigEditorPage() {
               {/* 右侧主画布 (Detail Editor) */}
               <div className="lg:col-span-8 xl:col-span-9">
                 {activeKey === '__web__' ? (
-                  <PageSection description="敏感字段只显示掩码；未修改时不会覆盖 YAML 中的原值。" title="基础设置">
-                    <Card shadows="hover">
-                      <SchemaObjectFields
-                        fields={schema.global}
-                        path="/web"
-                        value={webConfig}
-                        onDelete={deleteValue}
-                        onSet={updateValue}
-                      />
-                    </Card>
+                  <PageSection description="配置全局临时工作目录与 Web 控制台服务参数；敏感字段只显示掩码。" title="基础设置">
+                    <div className="grid gap-4">
+                      <Card shadows="hover" title="全局备份临时工作目录">
+                        <div className="text-xs text-muted-foreground mb-3">
+                          备份执行过程中的临时转储与打包目录。留空时默认使用系统临时目录（如 Linux <code>/tmp</code>）。若生产环境 <code>/tmp</code> 分配空间较小（如 tmpfs 内存盘），备份大数据库极易导致「no space left on device」错误，强烈建议在此配置为空间充足的数据盘目录。
+                        </div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="sm:col-span-2">
+                            <div className="mb-1 text-xs font-medium text-muted-foreground">临时工作目录 (workdir)</div>
+                            <Input
+                              placeholder="例如：/data/gobackup_tmp 或 D:\gobackup_temp（留空默认使用系统临时目录）"
+                              value={typeof draft.workdir === 'string' ? draft.workdir : ''}
+                              onChange={(val) => {
+                                const trimmed = val.trim()
+                                if (trimmed === '') {
+                                  deleteValue('/workdir')
+                                } else {
+                                  updateValue('/workdir', trimmed)
+                                }
+                              }}
+                            />
+                          </div>
+                        </div>
+                      </Card>
+
+                      <Card shadows="hover" title="Web 控制台服务设置">
+                        <SchemaObjectFields
+                          fields={schema.global}
+                          path="/web"
+                          value={webConfig}
+                          onDelete={deleteValue}
+                          onSet={updateValue}
+                        />
+                      </Card>
+                    </div>
                   </PageSection>
                 ) : activeKey === '__global_other__' ? (
                   <PageSection title="其它全局配置">

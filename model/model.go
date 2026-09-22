@@ -3,6 +3,7 @@ package model
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/spf13/viper"
@@ -60,6 +61,15 @@ type runHandle struct {
 // 不会出现「先返回成功、随后在后台失败」的情况。调用方必须保证随后调用
 // Run（异步执行时放到 goroutine 里）或 Release。
 func (m Model) Start(trigger string) (*runHandle, error) {
+	// 为每次运行生成独立的 TempPath 和 DumpPath，
+	// 避免常驻守护进程多次执行时复用初始化时的旧时间戳路径
+	baseWorkDir := m.Config.WorkDir
+	if len(baseWorkDir) == 0 {
+		baseWorkDir = viper.GetString("workdir")
+	}
+	m.Config.TempPath = filepath.Join(baseWorkDir, fmt.Sprintf("%d", time.Now().UnixNano()))
+	m.Config.DumpPath = filepath.Join(m.Config.TempPath, m.Config.Name)
+
 	release, bindRun, err := acquireRunLock(m.Config)
 	if err != nil {
 		return nil, err
@@ -250,12 +260,11 @@ func (m Model) after() {
 	logger := logger.Tag("Model")
 
 	tempDir := m.Config.TempPath
-	if viper.GetBool("useTempWorkDir") {
-		tempDir = viper.GetString("workdir")
-	}
-	logger.Infof("Cleanup temp: %s/", tempDir)
-	if err := os.RemoveAll(tempDir); err != nil {
-		logger.Errorf("Cleanup temp dir %s error: %v", tempDir, err)
+	if len(tempDir) > 0 {
+		logger.Infof("Cleanup temp: %s/", tempDir)
+		if err := os.RemoveAll(tempDir); err != nil {
+			logger.Errorf("Cleanup temp dir %s error: %v", tempDir, err)
+		}
 	}
 
 	// Execute after_script

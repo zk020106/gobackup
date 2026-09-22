@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -39,6 +40,7 @@ type RuntimeInfo struct {
 	StartTime     string  `json:"start_time"`
 	UptimeSeconds int64   `json:"uptime_seconds"`
 	WorkDir       string  `json:"work_dir"`
+	TempDir       string  `json:"temp_dir"`
 	ConfigFile    string  `json:"config_file"`
 	StateDir      string  `json:"state_dir"`
 	MemoryAllocMB float64 `json:"memory_alloc_mb"`
@@ -569,12 +571,35 @@ func getSystemEnvironment(c *gin.Context) {
 	}
 
 	workDir, _ := os.Getwd()
-	checkDiskDir := config.GoBackupDir
+	tempDir := viper.GetString("workdir")
+	if len(tempDir) == 0 {
+		tempDir = viper.GetString("web.workdir")
+	}
+	if len(tempDir) == 0 {
+		tempDir = os.TempDir()
+	}
+
+	checkDiskDir := tempDir
+	if len(checkDiskDir) == 0 {
+		checkDiskDir = config.GoBackupDir
+	}
 	if len(checkDiskDir) == 0 {
 		checkDiskDir = workDir
 	}
 
-	diskTotalGB, diskFreeGB, diskUsedGB, diskPercent, _ := getSystemDisk(checkDiskDir)
+	probeDir := checkDiskDir
+	for {
+		if _, err := os.Stat(probeDir); err == nil {
+			break
+		}
+		parent := filepath.Dir(probeDir)
+		if parent == probeDir || parent == "." || parent == "" {
+			break
+		}
+		probeDir = parent
+	}
+
+	diskTotalGB, diskFreeGB, diskUsedGB, diskPercent, _ := getSystemDisk(probeDir)
 
 	now := time.Now()
 	uptime := int64(now.Sub(serverStartTime).Seconds())
@@ -585,6 +610,7 @@ func getSystemEnvironment(c *gin.Context) {
 		StartTime:     serverStartTime.Format("2006-01-02 15:04:05"),
 		UptimeSeconds: uptime,
 		WorkDir:       workDir,
+		TempDir:       tempDir,
 		ConfigFile:    viper.ConfigFileUsed(),
 		StateDir:      config.GoBackupDir,
 		MemoryAllocMB: allocMB,

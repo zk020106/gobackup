@@ -261,14 +261,25 @@ func loadConfig() error {
 	}
 
 	cfg, _ := os.ReadFile(viperConfigFile)
-	if err := viper.ReadConfig(strings.NewReader(os.ExpandEnv(string(cfg)))); err != nil {
+	expandedCfg := os.ExpandEnv(string(cfg))
+	if err := viper.ReadConfig(strings.NewReader(expandedCfg)); err != nil {
 		logger.Errorf("Load expanded config failed: %v", err)
 		return err
 	}
 
-	// TODO: Here the `useTempWorkDir` and `workdir`, is not in config document. We need removed it.
+	// 使用独立的临时 viper 解析当前配置文本，避免被全局 viper 历史 Set 的 override 污染
+	rawViper := viper.New()
+	rawViper.SetConfigType("yaml")
+	workdir := ""
+	if err := rawViper.ReadConfig(strings.NewReader(expandedCfg)); err == nil {
+		workdir = rawViper.GetString("workdir")
+		if len(workdir) == 0 {
+			workdir = rawViper.GetString("web.workdir")
+		}
+	}
+
 	viper.Set("useTempWorkDir", false)
-	if workdir := viper.GetString("workdir"); len(workdir) == 0 {
+	if len(workdir) == 0 {
 		// use temp dir as workdir
 		dir, err := os.MkdirTemp("", "gobackup")
 		if err != nil {
@@ -277,6 +288,8 @@ func loadConfig() error {
 
 		viper.Set("workdir", dir)
 		viper.Set("useTempWorkDir", true)
+	} else {
+		viper.Set("workdir", workdir)
 	}
 
 	Exist = true
@@ -315,15 +328,18 @@ func loadModel(key string) (ModelConfig, error) {
 	var model ModelConfig
 	model.Name = key
 
-	workdir, _ := os.Getwd()
-
-	model.WorkDir = workdir
-	model.TempPath = filepath.Join(viper.GetString("workdir"), fmt.Sprintf("%d", time.Now().UnixNano()))
-	model.DumpPath = filepath.Join(model.TempPath, key)
 	model.Viper = viper.Sub("models." + key)
 	if model.Viper == nil {
 		return ModelConfig{}, fmt.Errorf("model %s is empty or not a map", key)
 	}
+
+	baseWorkDir := viper.GetString("workdir")
+	if modelWorkDir := model.Viper.GetString("workdir"); len(modelWorkDir) > 0 {
+		baseWorkDir = modelWorkDir
+	}
+	model.WorkDir = baseWorkDir
+	model.TempPath = filepath.Join(baseWorkDir, fmt.Sprintf("%d", time.Now().UnixNano()))
+	model.DumpPath = filepath.Join(model.TempPath, key)
 
 	model.Description = model.Viper.GetString("description")
 	model.Schedule = ScheduleConfig{Enabled: false}

@@ -394,11 +394,11 @@ export default function EnvironmentPage() {
               </div>
             </Card>
 
-            {/* 卡片 4: 备份目录磁盘空间 */}
+            {/* 卡片 4: 临时工作目录磁盘空间 */}
             <Card shadows="hover">
               <div className="flex items-start justify-between">
                 <div>
-                  <div className="text-xs font-medium text-muted-foreground">备份目录磁盘空间</div>
+                  <div className="text-xs font-medium text-muted-foreground">临时工作目录磁盘空间</div>
                   <div className="mt-1 text-lg font-bold text-foreground">
                     {data.runtime.disk_free_gb.toFixed(1)} GB 可用
                   </div>
@@ -438,9 +438,9 @@ export default function EnvironmentPage() {
                 <span className="font-semibold text-foreground">配置文件:</span>{' '}
                 <span className="font-mono">{data.runtime.config_file || '默认'}</span>
               </div>
-              <div className="hidden lg:inline truncate max-w-xs" title={data.runtime.disk_path}>
-                <span className="font-semibold text-foreground">状态与数据目录:</span>{' '}
-                <span className="font-mono">{data.runtime.disk_path}</span>
+              <div className="hidden lg:inline truncate max-w-xs" title={data.runtime.temp_dir || data.runtime.disk_path}>
+                <span className="font-semibold text-foreground">临时工作目录:</span>{' '}
+                <span className="font-mono">{data.runtime.temp_dir || data.runtime.disk_path}</span>
               </div>
             </div>
             <div className="flex items-center gap-2">
