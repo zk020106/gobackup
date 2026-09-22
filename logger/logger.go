@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/fatih/color"
@@ -13,12 +14,13 @@ import (
 type Logger struct {
 	logFlag int
 	myLog   *log.Logger
+	tag     string
 }
 
 var (
 	_logFlag     = log.Ldate | log.Ltime
 	TimeFormat   = "2006/01/02 15:04:05"
-	_myLog       = log.New(&writer{os.Stdout, TimeFormat}, "", 0)
+	_myLog       = log.New(&writer{runAwareWriter{os.Stdout}, TimeFormat}, "", 0)
 	sharedLogger Logger
 	isTest       = os.Getenv("GO_ENV") == "test"
 	isDebug      = os.Getenv("DEBUG") == "true"
@@ -40,12 +42,19 @@ func init() {
 		}
 
 		logfile, _ := os.OpenFile("../log/test.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-		_myLog = log.New(logfile, "", _logFlag)
+		_myLog = log.New(runAwareWriter{logfile}, "", _logFlag)
 	}
 	sharedLogger = newLogger()
 }
 
 func SetLogger(logPath string) {
+	// O_CREATE cannot create the parent directory, and on Windows the state
+	// dir does not exist on a fresh install, which used to silently disable
+	// file logging.
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		log.Printf("create log dir failed: %v\n", err)
+	}
+
 	writers := make([]io.Writer, 0)
 	writers = append(writers, os.Stdout)
 	logfile, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
@@ -53,12 +62,12 @@ func SetLogger(logPath string) {
 		writers = append(writers, logfile)
 	}
 	multi := io.MultiWriter(writers...)
-	_myLog = log.New(&writer{multi, TimeFormat}, "", 0)
+	_myLog = log.New(&writer{runAwareWriter{multi}, TimeFormat}, "", 0)
 	sharedLogger = newLogger()
 }
 
 func newLogger() Logger {
-	return Logger{_logFlag, _myLog}
+	return Logger{logFlag: _logFlag, myLog: _myLog}
 }
 
 func Tag(tag string) Logger {
@@ -66,15 +75,22 @@ func Tag(tag string) Logger {
 }
 
 func (logger Logger) Prefix() string {
-	return logger.myLog.Prefix()
+	return logger.tag
 }
 
 func (logger Logger) Writer() io.Writer {
 	return logger.myLog.Writer()
 }
 
+// Tag 返回带标签的 logger 值。
+//
+// 这里刻意不调用 log.Logger.SetPrefix：那会修改共享的 *log.Logger，把所有
+// goroutine 正在写的日志前缀一起改掉（多个备份任务并发时前缀会互相串台，
+// 而且标签会一直粘在后续所有全局日志上）。改为每个 Logger 值持有自己的
+// *log.Logger（共享同一个底层 writer），标签只作用于这个值。
 func (logger Logger) Tag(tag string) Logger {
-	logger.myLog.SetPrefix(tag)
+	logger.tag += tag
+	logger.myLog = log.New(logger.myLog.Writer(), logger.tag, 0)
 	return logger
 }
 

@@ -1,0 +1,35 @@
+[Unit]
+Description=GoBackup - backup databases and files to cloud storages
+Documentation=https://gobackup.github.io
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# `run` keeps the scheduler and the web UI in one foreground process, which is
+# what systemd expects. It also writes its pid to $GOBACKUP_DIR/gobackup.pid, so
+# `gobackup stop` works from a shell as well.
+ExecStart=/usr/local/bin/gobackup run --config /etc/gobackup/gobackup.yml
+
+# No ExecStop on purpose: GoBackup installs its own SIGTERM handler, so systemd's
+# default stop already stops the scheduler, removes the pid file and exits
+# cleanly. `systemctl stop gobackup` and `gobackup stop` are equivalent.
+KillSignal=SIGTERM
+TimeoutStopSec=300
+
+Restart=on-failure
+RestartSec=5s
+
+User=gobackup
+Group=gobackup
+WorkingDirectory=/var/lib/gobackup
+StateDirectory=gobackup
+Environment=GOBACKUP_DIR=/var/lib/gobackup
+
+# Backups and the config embed database passwords, so keep them private to the
+# service account.
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

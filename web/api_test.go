@@ -57,13 +57,14 @@ func TestAPIStatus(t *testing.T) {
 }
 
 func TestAPIGetModels(t *testing.T) {
-	code, _ := invokeHttp("GET", "/api/config", nil, nil)
+	// /api 需要鉴权，带着当前配置的凭据访问。
+	code, _ := invokeHttp("GET", "/api/config", basicAuthHeader(), nil)
 
 	assert.Equal(t, 200, code)
 }
 
 func TestAPIPostPeform(t *testing.T) {
-	code, body := invokeHttp("POST", "/api/perform", nil, gin.H{"model": "test_model"})
+	code, body := invokeHttp("POST", "/api/perform", basicAuthHeader(), gin.H{"model": "test_model"})
 
 	assert.Equal(t, 200, code)
 	assertMatchJSON(t, gin.H{"message": "Backup: test_model performed in background."}, body)

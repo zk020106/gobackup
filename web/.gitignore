@@ -1,5 +1,8 @@
 # Logs
-logs
+#
+# 只忽略 web 根目录下的 logs 目录：写成不带斜杠的 `logs` 会连带忽略
+# src/pages/logs/（实时日志页面源码），导致这些源码无法提交。
+/logs
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -8,7 +11,9 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+pnpm-workspace.yaml
 dist
+dist.zip
 dist-ssr
 *.local
 

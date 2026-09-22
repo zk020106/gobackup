@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -93,11 +94,63 @@ type ModelConfig struct {
 }
 
 func getGoBackupDir() string {
-	dir := os.Getenv("GOBACKUP_DIR")
-	if len(dir) == 0 {
-		dir = filepath.Join(os.Getenv("HOME"), ".gobackup")
+	if dir := os.Getenv("GOBACKUP_DIR"); len(dir) > 0 {
+		return dir
 	}
-	return dir
+
+	// HOME is empty on Windows unless the user set it, which used to leave the
+	// state dir as the relative ".gobackup" and made the log file impossible to
+	// open. os.UserHomeDir resolves USERPROFILE there and HOME elsewhere.
+	home, err := os.UserHomeDir()
+	if err != nil || len(home) == 0 {
+		return ".gobackup"
+	}
+	return filepath.Join(home, ".gobackup")
+}
+
+// EnsureGoBackupDir creates the state directory that holds the log and pid
+// files. The log file is opened with O_CREATE, which still fails when the
+// parent directory is missing, so callers that depend on it must run this
+// first.
+func EnsureGoBackupDir() error {
+	if err := os.MkdirAll(GoBackupDir, 0o755); err != nil {
+		return fmt.Errorf("create %s: %w", GoBackupDir, err)
+	}
+	return nil
+}
+
+// WritePidFile records the current process id so that `gobackup stop` can find
+// the running instance later. Only long running commands (run/start) write it.
+func WritePidFile() error {
+	if err := EnsureGoBackupDir(); err != nil {
+		return err
+	}
+	if err := os.WriteFile(PidFilePath, []byte(strconv.Itoa(os.Getpid())), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", PidFilePath, err)
+	}
+	return nil
+}
+
+// ReadPidFile returns the process id recorded by WritePidFile.
+func ReadPidFile() (int, error) {
+	data, err := os.ReadFile(PidFilePath)
+	if err != nil {
+		return 0, err
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return 0, fmt.Errorf("invalid pid file %s: %w", PidFilePath, err)
+	}
+	return pid, nil
+}
+
+// RemovePidFile deletes the pid file, but only while it still points at pid.
+// That keeps a stale file written by another process from being deleted by
+// mistake.
+func RemovePidFile(pid int) {
+	if current, err := ReadPidFile(); err == nil && current == pid {
+		_ = os.Remove(PidFilePath)
+	}
 }
 
 // SubConfig sub config info
@@ -145,6 +198,23 @@ func Init(configFile string) error {
 	})
 
 	return loadConfig()
+}
+
+// Reload reloads the configuration from the file that was selected by Init.
+//
+// The web configuration editor uses this method after it has atomically
+// replaced the YAML file. Keeping the reload in this package makes sure the
+// same Viper instance and the existing fsnotify callbacks are used as they
+// are for a normal process reload.
+func Reload() error {
+	return loadConfig()
+}
+
+// ConfigFileUsed returns the absolute path of the configuration file currently
+// used by Viper. It is intentionally read-only so callers cannot accidentally
+// make the editor operate on a different file than the running application.
+func ConfigFileUsed() string {
+	return viper.ConfigFileUsed()
 }
 
 // OnConfigChange add callback when config changed
@@ -304,8 +374,17 @@ func loadScheduleConfig(model *ModelConfig) {
 		return
 	}
 
+	// A schedule section has historically meant "enabled" when it did not
+	// contain an enabled flag. Keep that default for existing configurations,
+	// while allowing the editor to explicitly disable a schedule without
+	// deleting its cron/every settings.
+	enabled := true
+	if subViper.IsSet("enabled") {
+		enabled = subViper.GetBool("enabled")
+	}
+
 	model.Schedule = ScheduleConfig{
-		Enabled: true,
+		Enabled: enabled,
 		Cron:    subViper.GetString("cron"),
 		Every:   subViper.GetString("every"),
 		At:      subViper.GetString("at"),

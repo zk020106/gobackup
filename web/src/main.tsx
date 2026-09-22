@@ -1,76 +1,22 @@
-import { StyleProvider } from '@ant-design/cssinjs';
-import { ConfigProvider } from 'antd';
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import App from './App';
-import FileList from './FileList';
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
 
-import 'remixicon/fonts/remixicon.css';
-import Icon from './icon';
-import './style.scss';
+// 必须在任何 Semi 组件之前引入：React 19 去掉了 ReactDOM.render，Toast /
+// Notification / Modal.confirm 这类命令式接口要靠它注入 createRoot 才能挂载，
+// 否则调用只会打一条 console 警告然后什么都不发生（错误提示就此静默消失）。
+import '@douyinfe/semi-ui-19/react19-adapter'
 
-const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <App />,
-  },
-  {
-    path: `/browser/:model`,
-    element: <FileList />,
-  },
-]);
+import { setupHttpAuth } from '@/auth/http-auth'
+import '@fontsource/inter/400.css'
+import '@fontsource/inter/500.css'
+import '@fontsource/inter/600.css'
+import '@douyinfe/semi-ui-19/dist/css/semi.css'
+import App from './App.tsx'
 
-ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
-  <React.StrictMode>
-    <ConfigProvider
-      theme={{
-        token: {
-          colorPrimary: '#EB5424',
-          colorText: '#313638',
-          colorSuccess: '#4BAB4E',
-          colorError: '#EB5424',
-          colorInfo: '#2454BB',
-          borderRadius: 4,
-        },
-      }}
-    >
-      <StyleProvider hashPriority="high">
-        <React.StrictMode>
-          <div className="p-0">
-            <div className="p-4">
-              <RouterProvider router={router} />
-            </div>
-            <div className="footer">
-              <div className="copyright flex items-center space-x-1">
-                <img
-                  src="https://user-images.githubusercontent.com/5518/205909959-12b92929-4ac5-4bb5-9111-6f9a3ed76cf6.png"
-                  className="h-6 mx-auto"
-                />
-                <div>
-                  <a
-                    href="https://gobackup.github.io"
-                    className="hover:text-blue"
-                    target="_blank"
-                  >
-                    GoBackup
-                  </a>
-                  <span> powered.</span>
-                </div>
-              </div>
-              <div className="links">
-                <a
-                  href="https://github.com/gobackup/gobackup"
-                  title="GitHub"
-                  target="_blank"
-                >
-                  <Icon name="github" mode="fill" />
-                </a>
-              </div>
-            </div>
-          </div>
-        </React.StrictMode>
-      </StyleProvider>
-    </ConfigProvider>
-  </React.StrictMode>
-);
+setupHttpAuth()
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>
+)

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 48 48">
+  <rect width="48" height="48" fill="url(#react-admin-logo-bg)" rx="15" />
+  <rect width="46" height="46" x="1" y="1" fill="url(#react-admin-logo-shine)" rx="14" />
+  <path fill="#fff" fill-opacity=".26" d="m24 10.7 15 8.7v16.2l-15 8.7-15-8.7V19.4l15-8.7Z" />
+  <path fill="#fff" fill-opacity=".94" d="m24 11 15 8.7-15 8.7-15-8.7L24 11Z" />
+  <path fill="#dbeafe" fill-opacity=".72" d="m24 28.4 15-8.7v16.2l-15 8.7V28.4Z" />
+  <path fill="#bfdbfe" fill-opacity=".58" d="M24 28.4 9 19.7v16.2l15 8.7V28.4Z" />
+  <defs>
+    <linearGradient id="react-admin-logo-bg" x1="4.4" x2="43.6" y1="3.8" y2="44.2" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1677ff" />
+      <stop offset="1" stop-color="#6366f1" />
+    </linearGradient>
+    <radialGradient id="react-admin-logo-shine" cx="0" cy="0" r="1" gradientTransform="matrix(18 0 0 18 13 9.5)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fff" stop-opacity=".48" />
+      <stop offset="1" stop-color="#fff" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+</svg>

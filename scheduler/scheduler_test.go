@@ -59,3 +59,37 @@ func Test_parseDuration(t *testing.T) {
 		})
 	}
 }
+
+func Test_nextTimeOfDay(t *testing.T) {
+	location := time.Local
+	now := time.Date(2024, 5, 6, 15, 26, 0, 0, location)
+
+	t.Run("later today", func(t *testing.T) {
+		at, err := nextTimeOfDay("20:00", now)
+		assert.Nil(t, err)
+		assert.Equal(t, time.Date(2024, 5, 6, 20, 0, 0, 0, location), at)
+	})
+
+	t.Run("already passed rolls to tomorrow", func(t *testing.T) {
+		at, err := nextTimeOfDay("03:30", now)
+		assert.Nil(t, err)
+		assert.Equal(t, time.Date(2024, 5, 7, 3, 30, 0, 0, location), at)
+	})
+
+	t.Run("seconds are honoured", func(t *testing.T) {
+		at, err := nextTimeOfDay("16:00:30", now)
+		assert.Nil(t, err)
+		assert.Equal(t, time.Date(2024, 5, 6, 16, 0, 30, 0, location), at)
+	})
+
+	t.Run("earliest of several times wins", func(t *testing.T) {
+		at, err := nextTimeOfDay("18:00;16:00", now)
+		assert.Nil(t, err)
+		assert.Equal(t, time.Date(2024, 5, 6, 16, 0, 0, 0, location), at)
+	})
+
+	t.Run("invalid value reports an error", func(t *testing.T) {
+		_, err := nextTimeOfDay("not-a-time", now)
+		assert.NotNil(t, err)
+	})
+}

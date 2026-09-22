@@ -1,7 +1,7 @@
 package compressor
 
 import (
-	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -25,15 +25,19 @@ func TestBase_archiveFilePath(t *testing.T) {
 	viper.SetDefault("type", "tar")
 	viper.SetDefault("filename_format", "backup-2006.01.02.15.04.05")
 	model := config.ModelConfig{}
+	// 归档文件路径固定是绝对路径：压缩不再用 os.Chdir 切换工作目录，
+	// 相对路径会相对于进程 cwd 解析，因此必须先把 TempPath 规范化。
+	model.TempPath = t.TempDir()
 	model.CompressWith = config.SubConfig{
 		Type:  viper.GetString("type"),
 		Viper: viper,
 	}
 	base := newBase(model)
-	prefixPath := path.Join(base.model.TempPath, time.Now().Format("backup-2006.01.02.15.04"))
+	prefixPath := filepath.Join(model.TempPath, time.Now().Format("backup-2006.01.02.15.04"))
 	archivePath := base.archiveFilePath(".tar")
 	assert.True(t, strings.HasPrefix(archivePath, prefixPath))
 	assert.True(t, strings.HasSuffix(archivePath, ".tar"))
+	assert.True(t, filepath.IsAbs(archivePath))
 }
 
 func TestBaseInterface(t *testing.T) {

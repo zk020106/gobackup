@@ -5,7 +5,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -13,6 +12,7 @@ import (
 	"github.com/gobackup/gobackup/config"
 	superlogger "github.com/gobackup/gobackup/logger"
 	"github.com/gobackup/gobackup/model"
+	"github.com/gobackup/gobackup/task"
 )
 
 var (
@@ -52,6 +52,51 @@ func parseDuration(s string) (time.Duration, error) {
 	return 0, fmt.Errorf("invalid duration format: %s", s)
 }
 
+// nextTimeOfDay returns the next occurrence of a "HH:MM" or "HH:MM:SS" time of
+// day, moving to tomorrow when that moment already passed today. Multiple times
+// separated by ";" are supported, matching gocron's .At() syntax; the earliest
+// upcoming one wins.
+func nextTimeOfDay(value string, now time.Time) (time.Time, error) {
+	var (
+		next time.Time
+		err  error
+	)
+
+	for _, candidate := range strings.Split(value, ";") {
+		candidate = strings.TrimSpace(candidate)
+		if candidate == "" {
+			continue
+		}
+
+		layout := "15:04:05"
+		if strings.Count(candidate, ":") == 1 {
+			layout = "15:04"
+		}
+
+		parsed, parseErr := time.ParseInLocation(layout, candidate, now.Location())
+		if parseErr != nil {
+			err = parseErr
+			continue
+		}
+
+		at := time.Date(now.Year(), now.Month(), now.Day(), parsed.Hour(), parsed.Minute(), parsed.Second(), 0, now.Location())
+		if !at.After(now) {
+			at = at.AddDate(0, 0, 1)
+		}
+		if next.IsZero() || at.Before(next) {
+			next = at
+		}
+	}
+
+	if next.IsZero() {
+		if err != nil {
+			return time.Time{}, err
+		}
+		return time.Time{}, fmt.Errorf("invalid at time: %s", value)
+	}
+	return next, nil
+}
+
 func init() {
 	config.OnConfigChange(func(in fsnotify.Event) {
 		Restart()
@@ -64,8 +109,6 @@ func Start() error {
 
 	mycron = gocron.NewScheduler(time.Local)
 
-	mu := sync.Mutex{}
-
 	for _, modelConfig := range config.Models {
 		if !modelConfig.Schedule.Enabled {
 			continue
@@ -77,18 +120,35 @@ func Start() error {
 		if modelConfig.Schedule.Cron != "" {
 			scheduler = mycron.Cron(modelConfig.Schedule.Cron)
 		} else {
-			scheduler = mycron.Every(modelConfig.Schedule.Every)
+			// gocron.Every only accepts time.ParseDuration units ("h", "m", "s"),
+			// while GoBackup configs and the README use "1day" / "2weeks". Running
+			// the value through parseDuration first keeps those working instead of
+			// silently registering no job at all.
+			interval, intervalErr := parseDuration(modelConfig.Schedule.Every)
+			if intervalErr != nil {
+				logger.Errorf("Invalid every value %q: %s", modelConfig.Schedule.Every, intervalErr)
+			}
+			scheduler = mycron.Every(interval)
+
 			if len(modelConfig.Schedule.At) > 0 {
-				scheduler = scheduler.At(modelConfig.Schedule.At)
+				// gocron rejects .At() for duration based intervals ("the At()
+				// method is not supported for this time unit"), which used to make
+				// every "1day at 03:30" schedule register nothing at all. Start the
+				// interval at the next occurrence of that time of day instead; the
+				// repeating run then lands on the same time of day.
+				startAt, atErr := nextTimeOfDay(modelConfig.Schedule.At, time.Now())
+				if atErr != nil {
+					logger.Errorf("Invalid at value %q: %s", modelConfig.Schedule.At, atErr)
+				} else {
+					scheduler = scheduler.StartAt(startAt)
+				}
 			} else {
 				// If no $at present, delay start cron job with $every duration
-				startDuration, _ := parseDuration(modelConfig.Schedule.Every)
-				scheduler = scheduler.StartAt(time.Now().Add(startDuration))
+				scheduler = scheduler.StartAt(time.Now().Add(interval))
 			}
 		}
 
 		if _, err := scheduler.Do(func(modelConfig config.ModelConfig) {
-			defer mu.Unlock()
 			logger := superlogger.Tag(fmt.Sprintf("Scheduler: %s", modelConfig.Name))
 
 			logger.Info("Performing...")
@@ -96,11 +156,18 @@ func Start() error {
 			m := model.Model{
 				Config: modelConfig,
 			}
-			mu.Lock()
-			if err := m.Perform(); err != nil {
+
+			// 并发控制交给 model/task：同一个模型或同一个数据库环境不允许
+			// 同时执行，不同模型之间可以并行，这里不再做全局串行。
+			err := m.PerformWithTrigger("schedule")
+			switch {
+			case err == nil:
+				logger.Info("Done.")
+			case task.IsConflict(err):
+				logger.Warnf("Skip this run: %s", err.Error())
+			default:
 				logger.Errorf("Failed to perform: %s", err.Error())
 			}
-			logger.Info("Done.")
 		}, modelConfig); err != nil {
 			logger.Errorf("Failed to register job func: %s", err.Error())
 		}

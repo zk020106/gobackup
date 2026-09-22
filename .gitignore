@@ -24,3 +24,19 @@ log/
 .DS_Store
 tests/backups/
 tests/data/
+
+# 本地构建缓存（沙箱环境把 GOCACHE 放在仓库内）
+.gocache/
+
+# pnpm 若被配置成使用仓库内 store 时会生成这个目录
+.pnpm-store/
+
+# 本地备份输出目录：gobackup.yml 里 path: backups/venus 的落盘位置，
+# 里面是真实的数据库 dump（含敏感数据），绝不提交。
+# 注意 tests/backups/ 是测试夹具目录，与这里不是一回事。
+backups/
+
+# Claude Code 的本地设置（每台机器/每人不同）。
+# 全局 ignore 通常已挡 settings.local.json，这里显式写一份，
+# 保证在没配全局 ignore 的机器上 clone 也不会误提交。
+.claude/settings.local.json

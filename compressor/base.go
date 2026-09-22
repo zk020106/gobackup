@@ -2,10 +2,10 @@ package compressor
 
 import (
 	"fmt"
-	"github.com/gobackup/gobackup/helper"
-	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/gobackup/gobackup/helper"
 
 	"github.com/gobackup/gobackup/config"
 	"github.com/gobackup/gobackup/logger"
@@ -28,7 +28,14 @@ type Compressor interface {
 
 func (c *Base) archiveFilePath(ext string) string {
 	format := c.model.CompressWith.Viper.GetString("filename_format")
-	return filepath.Join(c.model.TempPath, time.Now().Format(format)+ext)
+	name := time.Now().Format(format) + ext
+
+	// 归档文件路径必须是绝对路径：压缩不再通过 os.Chdir 切换工作目录
+	// （那是进程级全局状态，多个备份并发时会互相踩），而是交给 tar 的 -C。
+	if abs, err := filepath.Abs(c.model.TempPath); err == nil {
+		return filepath.Join(abs, name)
+	}
+	return filepath.Join(c.model.TempPath, name)
 }
 
 func newBase(model config.ModelConfig) (base Base) {
@@ -92,11 +99,6 @@ func Run(model config.ModelConfig) (string, error) {
 	if err := helper.MkdirP(model.DumpPath); err != nil {
 		logger.Errorf("Failed to mkdir dump path %s: %v", model.DumpPath, err)
 		return "", err
-	}
-
-	// set workdir
-	if err := os.Chdir(filepath.Join(model.DumpPath, "../")); err != nil {
-		return "", fmt.Errorf("chdir to dump path: %s: %w", model.DumpPath, err)
 	}
 
 	archivePath, err := c.perform()

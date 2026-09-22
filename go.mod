@@ -24,6 +24,7 @@ require (
 	github.com/urfave/cli/v2 v2.23.6
 	golang.org/x/crypto v0.41.0
 	google.golang.org/api v0.103.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -111,7 +112,6 @@ require (
 	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 replace github.com/jlaffaye/ftp => github.com/ncw/ftp v0.0.0-20221014105808-5da37698fc59

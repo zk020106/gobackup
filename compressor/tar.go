@@ -2,6 +2,7 @@ package compressor
 
 import (
 	"os/exec"
+	"path/filepath"
 
 	"github.com/gobackup/gobackup/helper"
 )
@@ -15,7 +16,9 @@ func (tar *Tar) perform() (archivePath string, err error) {
 
 	opts := tar.options()
 	opts = append(opts, filePath)
-	opts = append(opts, tar.name)
+	// 显式用 -C 指定工作目录，避免为了打一个相对路径而 os.Chdir 到进程级
+	// 全局工作目录（备份并发执行时会互相影响）。
+	opts = append(opts, "-C", filepath.Dir(tar.model.DumpPath), tar.name)
 	archivePath = filePath
 
 	_, err = helper.Exec("tar", opts...)

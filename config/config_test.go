@@ -107,6 +107,35 @@ func Test_otherModels(t *testing.T) {
 	assert.Equal(t, false, model.Schedule.Enabled)
 }
 
+func TestScheduleExplicitlyDisabled(t *testing.T) {
+	file, err := os.CreateTemp("", "gobackup-schedule-*.yml")
+	assert.Nil(t, err)
+	t.Cleanup(func() {
+		_ = os.Remove(file.Name())
+		_ = Init(testConfigFile)
+	})
+
+	content := []byte(`models:
+  disabled:
+    schedule:
+      enabled: false
+      every: 1day
+    storages:
+      local:
+        type: local
+        path: /tmp/gobackup
+    archive:
+      includes:
+        - /etc/hosts
+`)
+	assert.Nil(t, os.WriteFile(file.Name(), content, 0600))
+	assert.Nil(t, Init(file.Name()))
+	model := GetModelConfigByName("disabled")
+	assert.NotNil(t, model)
+	assert.Equal(t, false, model.Schedule.Enabled)
+	assert.Equal(t, "1day", model.Schedule.Every)
+}
+
 func Test_ScheduleConfig_String(t *testing.T) {
 	schedule := ScheduleConfig{
 		Enabled: true,
