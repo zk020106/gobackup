@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
-import { LazyLog } from '@melloware/react-logviewer'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMemo, useState } from "react";
+import { LazyLog } from "@melloware/react-logviewer";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
   Card,
@@ -12,175 +12,237 @@ import {
   Skeleton,
   Table,
   Tag,
-  Toast
-} from '@douyinfe/semi-ui-19'
-import type { ColumnProps } from '@douyinfe/semi-ui-19/lib/es/table'
-import { Download, Eye, RefreshCw, Trash2 } from 'lucide-react'
+  Toast,
+} from "@douyinfe/semi-ui-19";
+import type { ColumnProps } from "@douyinfe/semi-ui-19/lib/es/table";
+import { Download, Eye, RefreshCw, Trash2 } from "lucide-react";
 
-import { buildBackupUrl, gobackupApi, type BackupRun } from '@/api/gobackup'
-import { PageSection } from '@/components/page'
+import { buildBackupUrl, gobackupApi, type BackupRun } from "@/api/gobackup";
+import { PageSection } from "@/components/page";
 import {
   downloadRemoteFile,
   formatBytes,
   formatDateTime,
   formatDuration,
   statusLabel,
-  triggerLabel
-} from '@/pages/logs/log-utils'
+  triggerLabel,
+} from "@/pages/logs/log-utils";
+import {
+  bytesText,
+  phaseText,
+  progressAriaLabel,
+  progressPercent,
+  progressText,
+} from "@/pages/tasks/task-utils";
 
-function statusTag(status: BackupRun['status']) {
+function statusTag(status: BackupRun["status"]) {
   switch (status) {
-    case 'success':
-      return <Tag color="green" className="w-fit">成功</Tag>
-    case 'failure':
-      return <Tag color="red" className="w-fit">失败</Tag>
-    case 'running':
-      return <Tag color="orange" className="w-fit">进行中</Tag>
+    case "success":
+      return (
+        <Tag color="green" className="w-fit">
+          成功
+        </Tag>
+      );
+    case "failure":
+      return (
+        <Tag color="red" className="w-fit">
+          失败
+        </Tag>
+      );
+    case "running":
+      return (
+        <Tag color="orange" className="w-fit">
+          进行中
+        </Tag>
+      );
     default:
-      return <Tag color="grey" className="w-fit">{statusLabel(status)}</Tag>
+      return (
+        <Tag color="grey" className="w-fit">
+          {statusLabel(status)}
+        </Tag>
+      );
   }
 }
 
 function triggerTag(trigger: string) {
-  const color = trigger === 'schedule' ? 'blue' : trigger === 'api' ? 'purple' : 'grey'
-  return <Tag color={color}>{triggerLabel(trigger)}</Tag>
+  const color = trigger === "schedule" ? "blue" : trigger === "api" ? "purple" : "grey";
+  return <Tag color={color}>{triggerLabel(trigger)}</Tag>;
 }
 
 export default function RunHistoryPanel() {
-  const queryClient = useQueryClient()
-  const [modelFilter, setModelFilter] = useState('')
-  const [selectedId, setSelectedId] = useState<string>()
+  const queryClient = useQueryClient();
+  const [modelFilter, setModelFilter] = useState("");
+  const [selectedId, setSelectedId] = useState<string>();
 
   const runsQuery = useQuery({
-    queryKey: ['gobackup', 'runs', modelFilter],
-    queryFn: ({ signal }) => gobackupApi.runs({ model: modelFilter || undefined, limit: 100 }, signal),
-    refetchInterval: query =>
-      query.state.data?.some(run => run.status === 'running') ? 3000 : false
-  })
+    queryKey: ["gobackup", "runs", modelFilter],
+    queryFn: ({ signal }) =>
+      gobackupApi.runs({ model: modelFilter || undefined, limit: 100 }, signal),
+    refetchInterval: (query) =>
+      query.state.data?.some((run) => run.status === "running") ? 3000 : false,
+  });
 
-  const runs = runsQuery.data ?? []
-  const selectedRun = useMemo(
-    () => runs.find(run => run.id === selectedId),
-    [runs, selectedId]
-  )
+  const runs = runsQuery.data ?? [];
+  const selectedRun = useMemo(() => runs.find((run) => run.id === selectedId), [runs, selectedId]);
 
   const logQuery = useQuery({
-    queryKey: ['gobackup', 'runs', selectedId, 'log'],
+    queryKey: ["gobackup", "runs", selectedId, "log"],
     queryFn: ({ signal }) => gobackupApi.runLog(selectedId!, signal),
     enabled: Boolean(selectedId),
-    refetchInterval: selectedRun?.status === 'running' ? 3000 : false
-  })
+    refetchInterval: selectedRun?.status === "running" ? 3000 : false,
+  });
 
   const modelOptions = useMemo(() => {
-    const names = Array.from(new Set(runs.map(run => run.model))).sort()
+    const names = Array.from(new Set(runs.map((run) => run.model))).sort();
     return [
-      { label: '全部模型', value: '' },
-      ...names.map(name => ({ label: name, value: name }))
-    ]
-  }, [runs])
+      { label: "全部模型", value: "" },
+      ...names.map((name) => ({ label: name, value: name })),
+    ];
+  }, [runs]);
 
   const stats = useMemo(
     () => ({
-      failure: runs.filter(run => run.status === 'failure').length,
-      running: runs.filter(run => run.status === 'running').length,
-      success: runs.filter(run => run.status === 'success').length,
-      total: runs.length
+      failure: runs.filter((run) => run.status === "failure").length,
+      running: runs.filter((run) => run.status === "running").length,
+      success: runs.filter((run) => run.status === "success").length,
+      total: runs.length,
     }),
-    [runs]
-  )
+    [runs],
+  );
 
   async function removeRun(id: string) {
     try {
-      await gobackupApi.deleteRun(id)
-      if (selectedId === id) setSelectedId(undefined)
-      Toast.success('已删除该备份记录')
-      await queryClient.invalidateQueries({ queryKey: ['gobackup', 'runs'] })
+      await gobackupApi.deleteRun(id);
+      if (selectedId === id) setSelectedId(undefined);
+      Toast.success("已删除该备份记录");
+      await queryClient.invalidateQueries({ queryKey: ["gobackup", "runs"] });
     } catch (error) {
-      Toast.error(error instanceof Error ? error.message : '删除备份记录失败')
+      Toast.error(error instanceof Error ? error.message : "删除备份记录失败");
     }
   }
 
   async function downloadRunLog(run: BackupRun) {
     try {
-      await downloadRemoteFile(buildBackupUrl(`runs/${encodeURIComponent(run.id)}/log`, { download: '1' }), `${run.id}.log`)
+      await downloadRemoteFile(
+        buildBackupUrl(`runs/${encodeURIComponent(run.id)}/log`, { download: "1" }),
+        `${run.id}.log`,
+      );
     } catch (error) {
-      Toast.error(error instanceof Error ? error.message : '下载运行日志失败')
+      Toast.error(error instanceof Error ? error.message : "下载运行日志失败");
     }
   }
 
   const columns: ColumnProps<BackupRun>[] = [
     {
-      dataIndex: 'started_at',
+      dataIndex: "started_at",
       render: (_: unknown, run: BackupRun) => (
         <span className="whitespace-nowrap">{formatDateTime(run.started_at)}</span>
       ),
-      title: '开始时间',
-      width: 170
+      title: "开始时间",
+      width: 170,
     },
     {
-      dataIndex: 'model',
+      dataIndex: "model",
       render: (_: unknown, run: BackupRun) => <span className="font-medium">{run.model}</span>,
-      title: '模型',
-      width: 140
+      title: "模型",
+      width: 140,
     },
     {
-      dataIndex: 'trigger',
+      dataIndex: "trigger",
       render: (_: unknown, run: BackupRun) => triggerTag(run.trigger),
-      title: '触发方式',
-      width: 110
+      title: "触发方式",
+      width: 110,
     },
     {
-      dataIndex: 'status',
+      dataIndex: "status",
       render: (_: unknown, run: BackupRun) => (
         <div className="flex flex-col items-start gap-1">
           {statusTag(run.status)}
           {run.error ? (
-            <span
-              className="line-clamp-1 max-w-64 text-xs text-destructive"
-              title={run.error}
-            >
+            <span className="line-clamp-1 max-w-64 text-xs text-destructive" title={run.error}>
               {run.error}
             </span>
           ) : null}
         </div>
       ),
-      title: '结果',
-      width: 220
+      title: "结果",
+      width: 220,
     },
     {
-      dataIndex: 'duration_ms',
-      render: (_: unknown, run: BackupRun) => formatDuration(run.duration_ms),
-      title: '耗时',
-      width: 110
-    },
-    {
-      dataIndex: 'progress',
+      dataIndex: "progress",
       render: (_: unknown, run: BackupRun) => {
-        const progress = run.progress
-        if (!run.running || !progress) {
-          return '-'
+        const progress = run.progress;
+        if (run.running) {
+          if (!progress) {
+            return <span className="text-xs text-muted-foreground">启动中…</span>;
+          }
+          const percent = progressPercent(progress);
+          const isIndeterminate = percent === undefined;
+          return (
+            <div className="grid min-w-36 gap-1">
+              <Progress
+                aria-label={`列表 ${progressAriaLabel(progress, run.model)}`}
+                format={() => progressText(progress)}
+                indeterminate={isIndeterminate}
+                percent={percent ?? 0}
+                showInfo
+                size="small"
+                stroke="var(--semi-color-primary)"
+              />
+              <div className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
+                {phaseText(progress) ? (
+                  <span className="line-clamp-1 max-w-56 truncate" title={phaseText(progress)}>
+                    {phaseText(progress)}
+                  </span>
+                ) : null}
+                {bytesText(progress) ? <span>{bytesText(progress)}</span> : null}
+              </div>
+            </div>
+          );
         }
 
-        return (
-          <div className="grid min-w-32 gap-1">
-            <Progress
-              format={() => `${Math.round(progress.percent)}%`}
-              percent={Math.round(progress.percent)}
-              showInfo
-              size="small"
-              stroke="var(--semi-color-primary)"
-            />
-            <span className="line-clamp-1 text-xs text-muted-foreground" title={progress.detail}>
-              {progress.phase ?? '进行中'}
-            </span>
-          </div>
-        )
+        if (run.status === "success") {
+          return (
+            <div className="min-w-32 py-1">
+              <Progress
+                format={() => "100%"}
+                percent={100}
+                showInfo
+                size="small"
+                stroke="var(--semi-color-success)"
+              />
+            </div>
+          );
+        }
+
+        if (run.status === "failure") {
+          const percent = Math.round(progress?.percent ?? 0);
+          return (
+            <div className="min-w-32 py-1">
+              <Progress
+                format={() => `${percent}%`}
+                percent={percent}
+                showInfo
+                size="small"
+                stroke="var(--semi-color-danger)"
+              />
+            </div>
+          );
+        }
+
+        return "-";
       },
-      title: '进度',
-      width: 180
+      title: "进度",
+      width: 220,
     },
     {
-      dataIndex: 'archive_name',
+      dataIndex: "duration_ms",
+      render: (_: unknown, run: BackupRun) => formatDuration(run.duration_ms),
+      title: "耗时",
+      width: 110,
+    },
+    {
+      dataIndex: "archive_name",
       render: (_: unknown, run: BackupRun) =>
         run.archive_name ? (
           <div className="grid gap-0.5">
@@ -190,13 +252,13 @@ export default function RunHistoryPanel() {
             <span className="text-xs text-muted-foreground">{formatBytes(run.archive_size)}</span>
           </div>
         ) : (
-          '-'
+          "-"
         ),
-      title: '归档文件',
-      width: 200
+      title: "归档文件",
+      width: 200,
     },
     {
-      dataIndex: 'id',
+      dataIndex: "id",
       render: (_: unknown, run: BackupRun) => (
         <div className="flex items-center gap-1">
           <Button
@@ -231,10 +293,10 @@ export default function RunHistoryPanel() {
           </Popconfirm>
         </div>
       ),
-      title: '操作',
-      width: 180
-    }
-  ]
+      title: "操作",
+      width: 180,
+    },
+  ];
 
   return (
     <PageSection
@@ -244,7 +306,7 @@ export default function RunHistoryPanel() {
             className="w-40"
             optionList={modelOptions}
             value={modelFilter}
-            onChange={next => setModelFilter(String(next))}
+            onChange={(next) => setModelFilter(String(next))}
           />
           <Button
             icon={<RefreshCw className="size-4" />}
@@ -262,7 +324,10 @@ export default function RunHistoryPanel() {
     >
       <div className="grid gap-3">
         <div className="grid gap-3 sm:grid-cols-4">
-          <Card shadows="hover" title={<span className="text-xs text-muted-foreground">记录总数</span>}>
+          <Card
+            shadows="hover"
+            title={<span className="text-xs text-muted-foreground">记录总数</span>}
+          >
             <div className="mt-1 text-2xl font-bold">{stats.total}</div>
           </Card>
           <Card shadows="hover" title={<span className="text-xs text-muted-foreground">成功</span>}>
@@ -271,7 +336,10 @@ export default function RunHistoryPanel() {
           <Card shadows="hover" title={<span className="text-xs text-muted-foreground">失败</span>}>
             <div className="mt-1 text-2xl font-bold text-destructive">{stats.failure}</div>
           </Card>
-          <Card shadows="hover" title={<span className="text-xs text-muted-foreground">进行中</span>}>
+          <Card
+            shadows="hover"
+            title={<span className="text-xs text-muted-foreground">进行中</span>}
+          >
             <div className="mt-1 text-2xl font-bold text-warning">{stats.running}</div>
           </Card>
         </div>
@@ -314,7 +382,9 @@ export default function RunHistoryPanel() {
           </div>
         }
         onCancel={() => setSelectedId(undefined)}
-        title={selectedRun ? `${selectedRun.model} · ${statusLabel(selectedRun.status)}` : '备份详情'}
+        title={
+          selectedRun ? `${selectedRun.model} · ${statusLabel(selectedRun.status)}` : "备份详情"
+        }
         visible={Boolean(selectedId)}
         width={860}
       >
@@ -340,13 +410,17 @@ export default function RunHistoryPanel() {
               <div>
                 <div className="text-xs text-muted-foreground">数据库</div>
                 <div>
-                  {(selectedRun.databases ?? []).map(item => `${item.name}(${item.type})`).join(', ') || '-'}
+                  {(selectedRun.databases ?? [])
+                    .map((item) => `${item.name}(${item.type})`)
+                    .join(", ") || "-"}
                 </div>
               </div>
               <div>
                 <div className="text-xs text-muted-foreground">存储</div>
                 <div>
-                  {(selectedRun.storages ?? []).map(item => `${item.name}(${item.type})`).join(', ') || '-'}
+                  {(selectedRun.storages ?? [])
+                    .map((item) => `${item.name}(${item.type})`)
+                    .join(", ") || "-"}
                 </div>
               </div>
               <div>
@@ -354,7 +428,7 @@ export default function RunHistoryPanel() {
                 <div className="break-all">
                   {selectedRun.archive_name
                     ? `${selectedRun.archive_name}（${formatBytes(selectedRun.archive_size)}）`
-                    : '-'}
+                    : "-"}
                 </div>
               </div>
               <div>
@@ -402,7 +476,7 @@ export default function RunHistoryPanel() {
                   follow={false}
                   height="auto"
                   selectableLines
-                  text={logQuery.data ?? ''}
+                  text={logQuery.data ?? ""}
                   wrapLines
                 />
               )}
@@ -411,5 +485,5 @@ export default function RunHistoryPanel() {
         ) : null}
       </Modal>
     </PageSection>
-  )
+  );
 }
